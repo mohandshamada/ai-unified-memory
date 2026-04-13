@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 import typer
 
 from .server import run_sse, run_stdio
@@ -35,4 +37,8 @@ def info() -> None:
 
 
 def main() -> None:
-    app()
+    # Default to stdio if no command provided (for MCP compatibility)
+    if len(sys.argv) == 1:
+        run_stdio()
+    else:
+        app()
