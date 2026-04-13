@@ -1,25 +1,24 @@
 # AI Unified Memory - Implementation Plan
 
 ## Stage 1: Project Scaffold ✅
-tatus: In Progress
+Status: Complete
 
 **Deliverables:**
 - [x] README.md with architecture overview
 - [x] pyproject.toml with dependencies
 - [x] .gitignore
 - [x] Directory structure (src/, tests/, configs/, scripts/, docs/)
-- [ ] PLAN.md (this file)
-- [ ] Initial commit to GitHub
+- [x] PLAN.md (this file)
+- [x] Initial commit to GitHub
 
 ---
 
-## Stage 2: Core Memory Server
-
-**Goal:** Build the FastMCP server with all memory operations.
+## Stage 2: Core Memory Server ✅
+Status: Complete
 
 **Deliverables:**
-- [ ] `src/ai_unified_memory/__init__.py` - package init
-- [ ] `src/ai_unified_memory/server.py` - FastMCP server with tools:
+- [x] `src/ai_unified_memory/__init__.py` - package init
+- [x] `src/ai_unified_memory/server.py` - FastMCP server with tools:
   - `memory_read(section: str, key: str) -> str`
   - `memory_write(section: str, key: str, content: str) -> bool`
   - `memory_search(query: str, scope: str = "all") -> list`
@@ -27,12 +26,12 @@ tatus: In Progress
   - `memory_get_project_context(project_path: str) -> dict`
   - `memory_list_projects() -> list`
   - `memory_create_project(name: str) -> bool`
-- [ ] `src/ai_unified_memory/store.py` - File system operations
+- [x] `src/ai_unified_memory/store.py` - File system operations
   - Read/write markdown files
   - Handle YAML frontmatter for metadata
   - Search with FTS (sqlite-fts or simple grep fallback)
-- [ ] `src/ai_unified_memory/models.py` - Pydantic models for memory entries
-- [ ] `src/ai_unified_memory/cli.py` - CLI entry point
+- [x] `src/ai_unified_memory/models.py` - Pydantic models for memory entries
+- [x] `src/ai_unified_memory/cli.py` - CLI entry point
 
 **File Store Layout:**
 ```
@@ -56,26 +55,25 @@ tatus: In Progress
 
 ---
 
-## Stage 3: Agent Configurations
-
-**Goal:** Provide setup guides and config files for each agent.
+## Stage 3: Agent Configurations ✅
+Status: Complete
 
 **Deliverables:**
-- [ ] `configs/claude.md` - Claude Code setup:
+- [x] `configs/claude.md` - Claude Code setup:
   - How to add MCP server to `~/.claude.json`
   - Symlink strategy for `CLAUDE.md`
   - Example `.mcp.json` for project-level config
   
-- [ ] `configs/kimi.md` - Kimi Code setup:
+- [x] `configs/kimi.md` - Kimi Code setup:
   - Add to `~/.kimi/config.toml` [mcp.servers] section
   - Since Kimi has no native file memory, rely entirely on MCP
   
-- [ ] `configs/hermes.md` - Hermes setup:
+- [x] `configs/hermes.md` - Hermes setup:
   - Symlink `~/.hermes/SOUL.md` → `~/.agent-memory/core/soul.md`
   - Symlink `~/.hermes/memories/USER.md` → `~/.agent-memory/core/user.md`
   - Add MCP server to `~/.hermes/config.yaml`
   
-- [ ] `configs/openclaw.md` - OpenClaw setup:
+- [x] `configs/openclaw.md` - OpenClaw setup:
   - Configure to inject `~/.agent-memory/core/` context into subagent prompts
   - MCP server registration in `~/.openclaw/`
 
@@ -83,33 +81,32 @@ tatus: In Progress
 
 ---
 
-## Stage 4: Sync Layer & Tests
-
-**Goal:** Prevent drift and ensure reliability.
+## Stage 4: Sync Layer & Tests ✅
+Status: Complete
 
 **Deliverables:**
-- [ ] `src/ai_unified_memory/sync.py` - Sync helpers:
+- [x] `src/ai_unified_memory/sync.py` - Sync helpers:
   - `ensure_symlinks()` - Create/update symlinks for Hermes/Claude
   - `check_drift()` - Detect if agents wrote to native paths instead of canonical
   - `repair_drift()` - Merge divergent files
   
-- [ ] `scripts/setup.sh` - One-shot setup script:
+- [x] `scripts/setup.sh` - One-shot setup script:
   - Create `~/.agent-memory/` structure
   - Migrate existing memories
   - Set up symlinks
   - Register MCP server with each agent
   
-- [ ] `tests/test_server.py` - pytest suite:
+- [x] `tests/test_server.py` - pytest suite:
   - Test each MCP tool
   - Test concurrent writes
   - Test search functionality
   
-- [ ] `tests/test_store.py` - File system tests:
+- [x] `tests/test_store.py` - File system tests:
   - YAML frontmatter parsing
   - Markdown read/write
   - FTS search
   
-- [ ] `tests/test_sync.py` - Sync tests:
+- [x] `tests/test_sync.py` - Sync tests:
   - Symlink creation
   - Drift detection
 
@@ -117,18 +114,17 @@ tatus: In Progress
 
 ---
 
-## Stage 5: Migration Scripts
-
-**Goal:** One-shot migration from existing agent memories.
+## Stage 5: Migration Scripts ✅
+Status: Complete
 
 **Deliverables:**
-- [ ] `scripts/migrate.py` - Migration tool:
+- [x] `scripts/migrate.py` - Migration tool:
   - Detect existing Hermes memories (`~/.hermes/memories/`, workspace `MEMORY.md`)
   - Detect existing Claude memories (`~/.claude/projects/*/memory/MEMORY.md`)
   - Merge into canonical store with conflict resolution
   - Backup original files
   
-- [ ] Migration guide in `docs/migration.md`
+- [x] Migration guide in `docs/migration.md`
 
 **Commit Point:** Stage 5 complete
 
