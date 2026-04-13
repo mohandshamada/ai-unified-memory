@@ -2,16 +2,19 @@
 
 An MCP-based unified memory server that lets **Claude Code**, **Kimi Code**, **Hermes**, and **OpenClaw** share the same long-term and project-specific memory.
 
-## Status
+## Problem
 
-✅ **Live and operational**
+Each AI agent stores memory in its own silo:
+- Claude Code → `~/.claude/projects/.../memory/MEMORY.md`
+- Hermes → `~/.hermes/memories/`, workspace `MEMORY.md`
+- Kimi Code → minimal native memory
+- OpenClaw → orchestrates subagents but can't inject shared context
 
-| Component | Status |
-|-----------|--------|
-| Core Server | ✅ Running |
-| MCP Gateway | ✅ Exposed at `https://mcp.mshousha.uk` |
-| Hermes Integration | ✅ Connected (8 tools available) |
-| Memory Store | ✅ Initialized at `~/.agent-memory/` |
+This means learnings, user preferences, and project context get fragmented or lost when switching agents.
+
+## Solution
+
+A **single canonical file store** (`~/.agent-memory/`) plus an **MCP Memory Server** that all agents can read from and write to at runtime.
 
 ## Quick Start
 
@@ -21,12 +24,11 @@ git clone https://github.com/mohandshamada/ai-unified-memory.git
 cd ai-unified-memory
 pip install -e .
 
-# Run locally
+# Run the MCP server
 python -m ai_unified_memory
 
-# Or connect to public gateway
-curl -H "Authorization: Bearer $TOKEN" \
-     https://mcp.mshousha.uk/sse
+# Or via stdio (for MCP clients)
+python -m ai_unified_memory --stdio
 ```
 
 ## Available Tools
@@ -49,7 +51,7 @@ curl -H "Authorization: Bearer $TOKEN" \
 │                     AGENT LAYER                                 │
 │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐            │
 │  │  Claude │  │  Kimi   │  │ Hermes  │  │ OpenClaw│            │
-│  │  Code   │  │  Code   │  │   ✅    │  │         │            │
+│  │  Code   │  │  Code   │  │         │  │         │            │
 │  └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘            │
 │       │            │            │            │                  │
 │       └────────────┴────────────┴────────────┘                  │
@@ -100,14 +102,14 @@ The canonical store at `~/.agent-memory/` contains:
 
 ## Agent Configuration
 
-### Hermes (Current Agent)
+### Hermes
 
 Add to `~/.hermes/config.yaml`:
 
 ```yaml
 mcp_servers:
   ai_unified_memory:
-    command: "/root/.hermes/hermes-agent/venv/bin/python"
+    command: "python"
     args: ["-m", "ai_unified_memory"]
     env:
       AGENT_NAME: "hermes"
@@ -153,34 +155,23 @@ OpenClaw injects context into subagent prompts. Add MCP config for subagents tha
 
 See `configs/openclaw.md` for full details.
 
-### MCP Gateway (Public Exposure)
+## Using with Other MCP Gateways
 
-To expose via [MCP-GATEWAY](https://github.com/mohandshamada/MCP-GATEWAY):
+To expose this server via an MCP gateway (like [MCP-GATEWAY](https://github.com/modelcontextprotocol/mcp-gateways)):
 
+1. Create a wrapper script that runs the server:
 ```bash
-# Create wrapper script
-cat > /home/MCP-GATEWAY/scripts/ai-unified-memory.sh << 'EOF'
+cat > ai-unified-memory.sh << 'EOF'
 #!/bin/bash
-export PYTHONPATH="/mnt/HC_Volume_104832602/ai-unified-memory/src:$PYTHONPATH"
-exec /root/.hermes/hermes-agent/venv/bin/python -m ai_unified_memory
+cd /path/to/ai-unified-memory
+exec python -m ai_unified_memory
 EOF
-chmod +x /home/MCP-GATEWAY/scripts/ai-unified-memory.sh
+chmod +x ai-unified-memory.sh
 ```
 
-Add to `config/gateway.json`:
+2. Register the wrapper script in your gateway's server configuration.
 
-```json
-{
-  "id": "ai-unified-memory",
-  "transport": "stdio",
-  "command": "/home/MCP-GATEWAY/scripts/ai-unified-memory.sh",
-  "args": [],
-  "enabled": true,
-  "timeout": 60000
-}
-```
-
-See `configs/mcp-gateway.md` for full setup.
+See your gateway's documentation for the exact config format.
 
 ## Development
 
@@ -210,8 +201,7 @@ ai-unified-memory/
 │   ├── claude.md
 │   ├── kimi.md
 │   ├── hermes.md
-│   ├── openclaw.md
-│   └── mcp-gateway.md
+│   └── openclaw.md
 ├── scripts/
 │   ├── setup.sh        # One-shot setup
 │   └── migrate.py      # Migration from existing memories
