@@ -24,6 +24,10 @@ git clone https://github.com/mohandshamada/ai-unified-memory.git
 cd ai-unified-memory
 pip install -e .
 
+# Or with extras
+pip install -e ".[guardian]"   # Includes Memory Guardian for Telegram digests
+pip install -e ".[dev]"       # Development dependencies
+
 # Run the MCP server
 python -m ai_unified_memory
 
@@ -154,6 +158,43 @@ env = { AGENT_NAME = "kimi-code" }
 OpenClaw injects context into subagent prompts. Add MCP config for subagents that support it, or preload context.
 
 See `configs/openclaw.md` for full details.
+
+## Memory Guardian (Optional)
+
+A daily digest tool that reads your unified memory store and sends a summary to Telegram.
+
+Install with the `guardian` extra:
+
+```bash
+pip install -e ".[guardian]"
+```
+
+### Usage
+
+```bash
+# Preview digest without sending
+ai-memory-guardian --dry-run
+
+# Send to Telegram
+ai-memory-guardian --telegram
+
+# Alias
+mg --dry-run
+```
+
+### Environment Variables
+
+```bash
+export TELEGRAM_BOT_TOKEN="your_bot_token"
+export TELEGRAM_CHAT_ID="your_chat_id"
+```
+
+### Cron Setup
+
+```bash
+# Daily at 9 AM
+0 9 * * * /usr/local/bin/ai-memory-guardian --telegram
+```
 
 ## Development
 
