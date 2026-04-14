@@ -42,13 +42,19 @@ class TestMemoryStore:
         assert store.read_core("nonexistent") is None
 
     def test_read_write_project(self, store):
-        project = ProjectMemory(name="my-project", content="# My Project\n")
+        project = ProjectMemory(name="my-project", content="# My Project\n", path="/tmp/my-project")
         assert store.write_project(project) is True
 
         read = store.read_project("my-project")
         assert read is not None
         assert read.name == "my-project"
+        assert read.path == "/tmp/my-project"
         assert "# My Project" in read.content
+
+        # Verify frontmatter on disk
+        path = store.base_path / "projects" / "my-project" / "memory.md"
+        content = path.read_text()
+        assert "path: /tmp/my-project" in content
 
     def test_list_projects(self, store):
         store.create_project("alpha")
@@ -62,8 +68,8 @@ class TestMemoryStore:
         assert store.append_daily("First note", tags=["note"]) is True
         assert store.append_daily("Second note") is True
 
-        from datetime import datetime
-        today = datetime.utcnow().strftime("%Y-%m-%d")
+        from datetime import datetime, timezone
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         daily = store.read_daily(today)
 
         assert len(daily.entries) == 2

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -33,8 +33,8 @@ class MemoryEntry(BaseModel):
     key: str = Field(..., description="Unique key for this memory")
     content: str = Field(..., description="Markdown content")
     tags: list[str] = Field(default_factory=list, description="Tags for categorization")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     agent: str | None = Field(None, description="Which agent created this entry")
     source: str | None = Field(None, description="Source context (file, conversation ID, etc.)")
     metadata: dict[str, Any] = Field(default_factory=dict, description="Extra metadata")
@@ -74,10 +74,10 @@ class MemoryEntry(BaseModel):
                     content=content,
                     tags=frontmatter.get("tags", []),
                     created_at=datetime.fromisoformat(
-                        frontmatter.get("created_at", datetime.utcnow().isoformat())
+                        frontmatter.get("created_at", datetime.now(timezone.utc).isoformat())
                     ),
                     updated_at=datetime.fromisoformat(
-                        frontmatter.get("updated_at", datetime.utcnow().isoformat())
+                        frontmatter.get("updated_at", datetime.now(timezone.utc).isoformat())
                     ),
                     agent=frontmatter.get("agent"),
                     source=frontmatter.get("source"),
@@ -98,8 +98,50 @@ class ProjectMemory(BaseModel):
     name: str = Field(..., description="Project name")
     path: str | None = Field(None, description="Absolute path to project directory")
     content: str = Field(default="", description="Project memory markdown content")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    def to_markdown(self) -> str:
+        """Convert to markdown with YAML frontmatter."""
+        import yaml
+
+        frontmatter = {
+            "name": self.name,
+            "path": self.path,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+        }
+        # Remove None values
+        frontmatter = {k: v for k, v in frontmatter.items() if v is not None}
+
+        yaml_str = yaml.dump(frontmatter, default_flow_style=False, sort_keys=False)
+        return f"---\n{yaml_str}---\n\n{self.content}\n"
+
+    @classmethod
+    def from_markdown(cls, markdown: str, name: str | None = None) -> ProjectMemory:
+        """Parse project memory markdown with YAML frontmatter."""
+        import yaml
+
+        if markdown.startswith("---"):
+            parts = markdown.split("---", 2)
+            if len(parts) >= 3:
+                frontmatter = yaml.safe_load(parts[1])
+                content = parts[2].strip()
+
+                return cls(
+                    name=name or frontmatter.get("name", "unknown"),
+                    path=frontmatter.get("path"),
+                    content=content,
+                    created_at=datetime.fromisoformat(
+                        frontmatter.get("created_at", datetime.now(timezone.utc).isoformat())
+                    ),
+                    updated_at=datetime.fromisoformat(
+                        frontmatter.get("updated_at", datetime.now(timezone.utc).isoformat())
+                    ),
+                )
+
+        # No frontmatter
+        return cls(name=name or "unknown", content=markdown.strip())
 
 
 class SearchResult(BaseModel):
@@ -136,14 +178,24 @@ class DailyNote(BaseModel):
             entry_key = lines[0].strip()
             entry_content = lines[1].strip() if len(lines) > 1 else ""
 
+            # Try to extract tags
+            tags = []
+            if "**Tags:**" in entry_content:
+                parts = entry_content.split("**Tags:**")
+                entry_content = parts[0].strip()
+                tag_str = parts[1].strip()
+                tags = [t.strip() for t in tag_str.split(",")]
+
             entry = MemoryEntry(
                 key=f"{date}/{entry_key}",
                 content=entry_content,
-                created_at=datetime.utcnow(),
+                tags=tags,
+                created_at=datetime.now(timezone.utc),
             )
             entries.append(entry)
 
         return cls(date=date, entries=entries)
+
 
     def to_markdown(self) -> str:
         """Convert to markdown."""

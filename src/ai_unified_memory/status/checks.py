@@ -132,19 +132,8 @@ def check_mcp_gateway() -> CheckResult:
 def check_unified_memory() -> CheckResult:
     """Check AI Unified Memory store."""
     try:
-        try:
-            from ai_unified_memory.store import MemoryStore
-            from ai_unified_memory.sync import check_drift, get_hermes_mappings, get_claude_mappings
-        except ImportError:
-            ai_unified_path = os.environ.get("AI_UNIFIED_MEMORY_PATH")
-            if ai_unified_path:
-                sys.path.insert(0, str(Path(ai_unified_path) / "src"))
-                from ai_unified_memory.store import MemoryStore
-                from ai_unified_memory.sync import check_drift, get_hermes_mappings, get_claude_mappings
-            else:
-                raise ImportError(
-                    "ai-unified-memory not found. Install it or set AI_UNIFIED_MEMORY_PATH."
-                )
+        from ai_unified_memory.store import MemoryStore
+        from ai_unified_memory.sync import check_drift, get_hermes_mappings, get_claude_mappings
         
         store = MemoryStore()
         

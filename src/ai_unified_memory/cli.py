@@ -36,6 +36,52 @@ def info() -> None:
     typer.echo(f"Use 'aimemory stdio' to start the MCP server.")
 
 
+@app.command()
+def sync(
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be done without doing it"),
+) -> None:
+    """Sync agent-native paths with canonical store."""
+    from .sync import ensure_symlinks
+
+    results = ensure_symlinks(dry_run=dry_run)
+    if dry_run:
+        typer.echo("DRY RUN: No changes made.")
+
+    if results["created_symlinks"]:
+        typer.echo("Created symlinks:")
+        for link in results["created_symlinks"]:
+            typer.echo(f"  - {link}")
+    else:
+        typer.echo("All symlinks are already in place.")
+
+
+@app.command()
+def drift_check() -> None:
+    """Check for drift between agent paths and store."""
+    from .sync import check_drift
+
+    results = check_drift()
+    if not results:
+        typer.echo("✅ No drift detected.")
+    else:
+        typer.echo("❌ Drift detected in the following files:")
+        for drift in results:
+            typer.echo(f"  - {drift.description}")
+            typer.echo(f"    Agent path: {drift.agent_path}")
+
+
+@app.command()
+def repair() -> None:
+    """Repair drift by merging or overwriting."""
+    from .sync import repair_drift
+
+    results = repair_drift()
+    if results["drift_repaired"] > 0:
+        typer.echo(f"Successfully repaired {results['drift_repaired']} files.")
+    else:
+        typer.echo("No drift to repair.")
+
+
 def main() -> None:
     # Default to stdio if no command provided (for MCP compatibility)
     if len(sys.argv) == 1:

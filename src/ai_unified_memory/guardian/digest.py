@@ -4,31 +4,19 @@ from __future__ import annotations
 
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-# Try to import ai-unified-memory
-try:
-    from ai_unified_memory.store import MemoryStore
-    from ai_unified_memory.sync import check_drift, get_hermes_mappings, get_claude_mappings
-except ImportError:
-    # Allow path to be set via environment variable
-    ai_unified_path = os.environ.get("AI_UNIFIED_MEMORY_PATH")
-    if ai_unified_path:
-        sys.path.insert(0, str(Path(ai_unified_path) / "src"))
-        from ai_unified_memory.store import MemoryStore
-        from ai_unified_memory.sync import check_drift, get_hermes_mappings, get_claude_mappings
-    else:
-        raise ImportError(
-            "ai-unified-memory not found. Install it or set AI_UNIFIED_MEMORY_PATH environment variable."
-        )
+from ai_unified_memory.store import MemoryStore
+from ai_unified_memory.sync import check_drift, get_hermes_mappings, get_claude_mappings
 
 
 def generate_digest() -> dict:
     """Generate a digest of the unified memory store."""
     store = MemoryStore()
-    today = datetime.utcnow().strftime("%Y-%m-%d")
-    yesterday = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%d")
+    now = datetime.now(timezone.utc)
+    today = now.strftime("%Y-%m-%d")
+    yesterday = (now - timedelta(days=1)).strftime("%Y-%m-%d")
 
     # Check daily notes
     today_daily = store.read_daily(today)

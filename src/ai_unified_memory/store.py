@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import fcntl
 import os
 import re
 import sqlite3
-from datetime import datetime
+from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Generator
 
 from .models import DailyNote, MemoryEntry, ProjectMemory, SearchResult
 
@@ -21,6 +23,19 @@ class MemoryStore:
         self.base_path = Path(base_path) if base_path else DEFAULT_MEMORY_PATH
         self._ensure_structure()
         self._init_search_db()
+
+    @contextmanager
+    def _lock(self, path: Path) -> Generator[None, None, None]:
+        """Context manager for file locking."""
+        lock_path = path.with_suffix(path.suffix + ".lock")
+        # Ensure directory exists for lock file
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(lock_path, "w") as f:
+            try:
+                fcntl.flock(f, fcntl.LOCK_EX)
+                yield
+            finally:
+                fcntl.flock(f, fcntl.LOCK_UN)
 
     def _ensure_structure(self) -> None:
         """Create directory structure if it doesn't exist."""
@@ -74,19 +89,44 @@ class MemoryStore:
             )
         """)
 
+        # Triggers to keep FTS in sync
+        cursor.execute("""
+            CREATE TRIGGER IF NOT EXISTS documents_ai AFTER INSERT ON documents BEGIN
+                INSERT INTO documents_fts(rowid, key, content)
+                VALUES (new.id, new.key, new.content);
+            END;
+        """)
+        cursor.execute("""
+            CREATE TRIGGER IF NOT EXISTS documents_ad AFTER DELETE ON documents BEGIN
+                INSERT INTO documents_fts(documents_fts, rowid, key, content)
+                VALUES('delete', old.id, old.key, old.content);
+            END;
+        """)
+        cursor.execute("""
+            CREATE TRIGGER IF NOT EXISTS documents_au AFTER UPDATE ON documents BEGIN
+                INSERT INTO documents_fts(documents_fts, rowid, key, content)
+                VALUES('delete', old.id, old.key, old.content);
+                INSERT INTO documents_fts(rowid, key, content)
+                VALUES (new.id, new.key, new.content);
+            END;
+        """)
+
         self.search_db.commit()
 
     def _index_document(self, key: str, section: str, content: str) -> None:
         """Index a document for search."""
         cursor = self.search_db.cursor()
 
-        # Remove old entry if exists
-        cursor.execute("DELETE FROM documents WHERE key = ?", (key,))
+        # Use ISO format for SQLite compatibility
+        now = datetime.now(timezone.utc).isoformat()
 
-        # Insert new entry
+        # Use REPLACE to ensure triggers fire (DELETE + INSERT)
         cursor.execute(
-            "INSERT INTO documents (key, section, content, updated_at) VALUES (?, ?, ?, ?)",
-            (key, section, content, datetime.utcnow()),
+            """
+            INSERT OR REPLACE INTO documents (key, section, content, updated_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (key, section, content, now),
         )
 
         self.search_db.commit()
@@ -103,7 +143,8 @@ class MemoryStore:
     def write_core(self, entry: MemoryEntry) -> bool:
         """Write a core memory file."""
         path = self.base_path / "core" / f"{entry.key}.md"
-        path.write_text(entry.to_markdown())
+        with self._lock(path):
+            path.write_text(entry.to_markdown())
         self._index_document(f"core/{entry.key}", "core", entry.content)
         return True
 
@@ -114,11 +155,7 @@ class MemoryStore:
             return None
 
         content = path.read_text()
-        return ProjectMemory(
-            name=project_name,
-            content=content,
-            updated_at=datetime.fromtimestamp(path.stat().st_mtime),
-        )
+        return ProjectMemory.from_markdown(content, name=project_name)
 
     def write_project(self, project: ProjectMemory) -> bool:
         """Write project memory."""
@@ -126,14 +163,15 @@ class MemoryStore:
         project_dir.mkdir(parents=True, exist_ok=True)
 
         path = project_dir / "memory.md"
-        path.write_text(project.content)
+        with self._lock(path):
+            path.write_text(project.to_markdown())
         self._index_document(f"projects/{project.name}", "projects", project.content)
         return True
 
     def read_daily(self, date: str | None = None) -> DailyNote:
         """Read daily notes for a specific date."""
         if date is None:
-            date = datetime.utcnow().strftime("%Y-%m-%d")
+            date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
         path = self.base_path / "daily" / f"{date}.md"
         if not path.exists():
@@ -145,11 +183,12 @@ class MemoryStore:
 
     def append_daily(self, content: str, tags: list[str] | None = None, agent: str | None = None) -> bool:
         """Append an entry to today's daily notes."""
-        date = datetime.utcnow().strftime("%Y-%m-%d")
+        now = datetime.now(timezone.utc)
+        date = now.strftime("%Y-%m-%d")
         path = self.base_path / "daily" / f"{date}.md"
 
         # Generate entry key from timestamp
-        entry_key = datetime.utcnow().strftime("%H:%M:%S")
+        entry_key = now.strftime("%H:%M:%S")
 
         entry = MemoryEntry(
             key=f"{date}/{entry_key}",
@@ -158,25 +197,27 @@ class MemoryStore:
             agent=agent,
         )
 
-        if path.exists():
-            existing = path.read_text()
-            lines = existing.split("\n")
-        else:
-            lines = [f"# Daily Notes - {date}", ""]
+        with self._lock(path):
+            if path.exists():
+                existing = path.read_text()
+                lines = existing.split("\n")
+            else:
+                lines = [f"# Daily Notes - {date}", ""]
 
-        # Append new entry
-        lines.extend([
-            f"## {entry_key}",
-            "",
-            content,
-            "",
-        ])
+            # Append new entry
+            lines.extend([
+                f"## {entry_key}",
+                "",
+                content,
+                "",
+            ])
 
-        if tags:
-            lines.append(f"**Tags:** {', '.join(tags)}")
-            lines.append("")
+            if tags:
+                lines.append(f"**Tags:** {', '.join(tags)}")
+                lines.append("")
 
-        path.write_text("\n".join(lines))
+            path.write_text("\n".join(lines))
+        
         self._index_document(f"daily/{entry.key}", "daily", content)
         return True
 
@@ -198,8 +239,8 @@ class MemoryStore:
 
         memory_file = project_dir / "memory.md"
         if not memory_file.exists():
-            content = f"# {name} - Project Memory\n\n_Project-specific context and learnings..._\n"
-            memory_file.write_text(content)
+            project = ProjectMemory(name=name, path=path, content=f"# {name} - Project Memory\n\n_Project-specific context and learnings..._\n")
+            self.write_project(project)
 
         return True
 
