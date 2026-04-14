@@ -155,24 +155,6 @@ OpenClaw injects context into subagent prompts. Add MCP config for subagents tha
 
 See `configs/openclaw.md` for full details.
 
-## Using with Other MCP Gateways
-
-To expose this server via an MCP gateway (like [MCP-GATEWAY](https://github.com/modelcontextprotocol/mcp-gateways)):
-
-1. Create a wrapper script that runs the server:
-```bash
-cat > ai-unified-memory.sh << 'EOF'
-#!/bin/bash
-cd /path/to/ai-unified-memory
-exec python -m ai_unified_memory
-EOF
-chmod +x ai-unified-memory.sh
-```
-
-2. Register the wrapper script in your gateway's server configuration.
-
-See your gateway's documentation for the exact config format.
-
 ## Development
 
 ```bash
