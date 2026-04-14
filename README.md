@@ -26,8 +26,11 @@ pip install -e .
 
 # Or with extras
 pip install -e ".[guardian]"   # Includes Memory Guardian for Telegram digests
+pip install -e ".[status]"     # Includes Agent Status dashboard
 pip install -e ".[dev]"       # Development dependencies
+```
 
+```bash
 # Run the MCP server
 python -m ai_unified_memory
 
@@ -194,6 +197,39 @@ export TELEGRAM_CHAT_ID="your_chat_id"
 ```bash
 # Daily at 9 AM
 0 9 * * * /usr/local/bin/ai-memory-guardian --telegram
+```
+
+## Agent Status (Optional)
+
+A TTY dashboard that checks the health of all your agents.
+
+Install with the `status` extra:
+
+```bash
+pip install -e ".[status]"
+```
+
+### Usage
+
+```bash
+# TTY dashboard
+agent-status
+
+# JSON output
+agent-status --json
+
+# Watch mode (refreshes every 5s)
+agent-status --watch
+
+# Alias
+ai-status
+astatus
+```
+
+### Environment Variables
+
+```bash
+export MCP_GATEWAY_CONFIG="/path/to/gateway/config.json"  # optional
 ```
 
 ## Development

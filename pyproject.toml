@@ -32,6 +32,9 @@ guardian = [
     "requests",
     "rich>=12.0.0",
 ]
+status = [
+    "rich>=12.0.0",
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
@@ -43,6 +46,9 @@ dev = [
 aimemory = "ai_unified_memory.cli:main"
 ai-memory-guardian = "ai_unified_memory.guardian.cli:main"
 mg = "ai_unified_memory.guardian.cli:main"
+ai-status = "ai_unified_memory.status.cli:main"
+agent-status = "ai_unified_memory.status.cli:main"
+astatus = "ai_unified_memory.status.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ai_unified_memory"]
